@@ -8,6 +8,7 @@ import { Review } from "@/pages/Review";
 import { Wrap } from "@/pages/Wrap";
 import { Settings } from "@/pages/Settings";
 import { getToken } from "@/lib/auth";
+import { pullState, startSync } from "@/lib/sync";
 
 export default function App() {
   const [authed, setAuthed] = useState(() => !!getToken());
@@ -24,6 +25,13 @@ export default function App() {
     return () =>
       window.removeEventListener("dopamine:auth-required", onAuthRequired);
   }, []);
+
+  // Boot sync once authed (pull then start listening for writes).
+  useEffect(() => {
+    if (!authed) return;
+    startSync();
+    void pullState();
+  }, [authed]);
 
   if (!authed) {
     return <PinGate onSuccess={() => setAuthed(true)} />;

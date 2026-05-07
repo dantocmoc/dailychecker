@@ -10,6 +10,7 @@ import {
   recordFailedAttempt,
   verifyToken,
 } from "./api/_lib/auth";
+import { kvAvailable, kvGet, kvSet } from "./api/_lib/kv";
 
 function readJson<T = unknown>(req: IncomingMessage): Promise<T> {
   return new Promise((resolve, reject) => {
@@ -42,6 +43,8 @@ export function apiPlugin(env: Record<string, string>): Plugin {
   if (env.ANTHROPIC_MODEL) process.env.ANTHROPIC_MODEL = env.ANTHROPIC_MODEL;
   if (env.APP_PIN) process.env.APP_PIN = env.APP_PIN;
   if (env.JWT_SECRET) process.env.JWT_SECRET = env.JWT_SECRET;
+  if (env.KV_REST_API_URL) process.env.KV_REST_API_URL = env.KV_REST_API_URL;
+  if (env.KV_REST_API_TOKEN) process.env.KV_REST_API_TOKEN = env.KV_REST_API_TOKEN;
 
   return {
     name: "dopamine-api",
@@ -77,6 +80,45 @@ export function apiPlugin(env: Record<string, string>): Plugin {
         } catch (err) {
           const msg = err instanceof Error ? err.message : String(err);
           console.error("[api/auth]", msg);
+          return send(res, 500, { error: msg });
+        }
+      });
+
+      server.middlewares.use("/api/state", async (req, res, next) => {
+        const method = req.method ?? "GET";
+        if (method !== "GET" && method !== "PUT") return next();
+        try {
+          const auth = req.headers["authorization"];
+          const token = extractBearer(auth);
+          const ok = await verifyToken(token);
+          if (!ok) return send(res, 401, { error: "Unauthorized" });
+
+          if (!kvAvailable()) {
+            return send(res, 503, { error: "Sync not configured" });
+          }
+
+          const STATE_KEY = "dopamine:state";
+
+          if (method === "GET") {
+            const raw = await kvGet(STATE_KEY);
+            if (!raw) return send(res, 200, { state: null });
+            try {
+              return send(res, 200, { state: JSON.parse(raw) });
+            } catch {
+              return send(res, 200, { state: null });
+            }
+          }
+
+          // PUT
+          const body = await readJson<{ version?: number; data?: Record<string, unknown> }>(req);
+          if (!body || typeof body.version !== "number") {
+            return send(res, 400, { error: "Body must include {version, data}" });
+          }
+          await kvSet(STATE_KEY, JSON.stringify(body));
+          return send(res, 200, { ok: true, version: body.version });
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : String(err);
+          console.error("[api/state]", msg);
           return send(res, 500, { error: msg });
         }
       });

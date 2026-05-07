@@ -33,6 +33,21 @@ export const DEFAULT_SETTINGS: AppSettings = {
   timezone: "Australia/Brisbane",
 };
 
+export const SYNCABLE_NAMES = [
+  "tasks",
+  "xp",
+  "level",
+  "streak",
+  "perfStreak",
+  "freezes",
+  "badges",
+  "history",
+  "settings",
+] as const;
+
+const SYNCABLE_KEYS_SET = new Set(SYNCABLE_NAMES.map((n) => `${NS}.${n}`));
+const STORAGE_DIRTY_EVENT = "dopamine:storage-dirty";
+
 function read<T>(key: string, fallback: T): T {
   try {
     const raw = localStorage.getItem(key);
@@ -45,6 +60,9 @@ function read<T>(key: string, fallback: T): T {
 
 function write<T>(key: string, value: T) {
   localStorage.setItem(key, JSON.stringify(value));
+  if (typeof window !== "undefined" && SYNCABLE_KEYS_SET.has(key)) {
+    window.dispatchEvent(new CustomEvent(STORAGE_DIRTY_EVENT, { detail: { key } }));
+  }
 }
 
 export const storage = {
