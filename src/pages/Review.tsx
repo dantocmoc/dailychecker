@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { v4 as uuidv4 } from "uuid";
-import { ArrowLeft, Battery, BatteryFull, BatteryLow, Brain, CalendarPlus, Check, Plus, Trash2 } from "lucide-react";
+import { ArrowLeft, Battery, BatteryLow, Brain, CalendarPlus, Check, Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";

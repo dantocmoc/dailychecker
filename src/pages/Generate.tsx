@@ -45,6 +45,31 @@ export function Generate() {
     return () => window.removeEventListener("paste", onPaste);
   }, []);
 
+  // Pick up an image shared via the OS share sheet. The service worker stashes
+  // it in Cache Storage at /share-target on POST, then redirects here with a flag.
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("from-share") !== "1") return;
+    void (async () => {
+      try {
+        const cache = await caches.open("share-target-v1");
+        const res = await cache.match("shared-image");
+        if (!res) return;
+        const blob = await res.blob();
+        const name = res.headers.get("x-share-name") || "shared.png";
+        const file = new File([blob], name, { type: blob.type || "image/png" });
+        setImageFile(file);
+        await cache.delete("shared-image");
+        // Tidy URL.
+        const url = new URL(window.location.href);
+        url.searchParams.delete("from-share");
+        window.history.replaceState({}, "", url.toString());
+      } catch (err) {
+        console.warn("share-target load failed", err);
+      }
+    })();
+  }, []);
+
   useEffect(() => {
     if (!imageFile) {
       setImagePreview(null);

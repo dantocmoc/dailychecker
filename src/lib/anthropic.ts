@@ -1,4 +1,5 @@
 import type { Task } from "./types";
+import { authHeader, logout } from "./auth";
 
 export interface PlanRequest {
   image_base64: string;
@@ -18,9 +19,14 @@ export interface PlanResponse {
 export async function generatePlan(req: PlanRequest): Promise<PlanResponse> {
   const res = await fetch("/api/generate", {
     method: "POST",
-    headers: { "content-type": "application/json" },
+    headers: { "content-type": "application/json", ...authHeader() },
     body: JSON.stringify(req),
   });
+  if (res.status === 401) {
+    logout();
+    window.dispatchEvent(new CustomEvent("dopamine:auth-required"));
+    throw new Error("Session expired, enter your PIN again.");
+  }
   if (!res.ok) {
     let msg = `Request failed (${res.status})`;
     try {
