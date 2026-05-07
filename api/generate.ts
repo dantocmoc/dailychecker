@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
-import { extractBearer, verifyToken } from "./_lib/auth";
-import { generatePlan, type GenerateRequest } from "../src/server/generate";
+import { extractBearer, verifyToken } from "./_lib/auth.js";
+import { generatePlan, type GenerateRequest } from "../src/server/generate.js";
 
 export const config = {
   maxDuration: 60,
