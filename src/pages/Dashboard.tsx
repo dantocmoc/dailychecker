@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
+import { v4 as uuidv4 } from "uuid";
 import {
   Battery,
   BatteryLow,
@@ -13,6 +14,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import { storage } from "@/lib/storage";
 import { downloadIcs } from "@/lib/ics";
 import {
@@ -20,7 +22,7 @@ import {
   progressForCurrentLevel,
   uncompleteTask,
 } from "@/lib/actions";
-import { formatTimeRange } from "@/lib/time";
+import { addMinutes, formatTimeRange } from "@/lib/time";
 import type { Energy, Task } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
@@ -93,6 +95,28 @@ export function Dashboard() {
   const pending = sorted.filter((t) => !t.completed_at);
   const done = sorted.filter((t) => t.completed_at);
   const progress = progressForCurrentLevel(xp);
+
+  function quickAdd(title: string) {
+    const trimmed = title.trim();
+    if (!trimmed) return;
+    const last = sorted[sorted.length - 1];
+    const start = last
+      ? last.suggested_end
+      : nextRoundedQuarterHour();
+    const newTask: Task = {
+      id: uuidv4(),
+      title: trimmed,
+      description: "",
+      duration_minutes: 30,
+      priority: 2,
+      energy: "shallow",
+      suggested_start: start,
+      suggested_end: addMinutes(start, 30),
+      source: "manual",
+    };
+    storage.setTasks([...storage.getTasks(), newTask]);
+    refresh();
+  }
 
   function handleTick(task: Task, ev: React.MouseEvent<HTMLButtonElement>) {
     if (task.completed_at) {
@@ -172,6 +196,7 @@ export function Dashboard() {
             </Button>
           </Link>
         </Card>
+        <QuickAdd onAdd={quickAdd} placeholder="Or just add a quick task..." />
       </div>
     );
   }
@@ -243,6 +268,7 @@ export function Dashboard() {
             Day cleared. Look at you.
           </Card>
         )}
+        <QuickAdd onAdd={quickAdd} placeholder="Add a quick task and hit Enter..." />
       </div>
 
       {done.length > 0 && (
@@ -261,6 +287,62 @@ export function Dashboard() {
         </div>
       )}
     </div>
+  );
+}
+
+function nextRoundedQuarterHour(): string {
+  const d = new Date();
+  d.setSeconds(0, 0);
+  const minutes = d.getMinutes();
+  const next = Math.ceil((minutes + 1) / 15) * 15;
+  d.setMinutes(next);
+  return d.toISOString();
+}
+
+function QuickAdd({
+  onAdd,
+  placeholder,
+}: {
+  onAdd: (title: string) => void;
+  placeholder: string;
+}) {
+  const [value, setValue] = useState("");
+  const [bump, setBump] = useState(0);
+  function submit() {
+    const t = value.trim();
+    if (!t) return;
+    onAdd(t);
+    setValue("");
+    setBump((n) => n + 1);
+  }
+  return (
+    <motion.div
+      key={bump}
+      animate={bump ? { scale: [1, 1.02, 1] } : undefined}
+      transition={{ duration: 0.25 }}
+    >
+      <Card className="p-2 flex items-center gap-2 border-dashed">
+        <button
+          onClick={submit}
+          aria-label="Add task"
+          className="size-7 rounded-md border-2 border-[var(--border)] hover:border-[var(--primary)] hover:bg-[var(--accent)] flex items-center justify-center shrink-0 transition-colors"
+        >
+          <Plus className="size-4 text-[var(--muted-foreground)]" />
+        </button>
+        <Input
+          value={value}
+          onChange={(e) => setValue(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              e.preventDefault();
+              submit();
+            }
+          }}
+          placeholder={placeholder}
+          className="flex-1 border-0 bg-transparent shadow-none focus-visible:ring-0 focus-visible:ring-offset-0 px-1"
+        />
+      </Card>
+    </motion.div>
   );
 }
 
